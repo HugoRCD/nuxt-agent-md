@@ -1,0 +1,6 @@
+node_modules
+dist
+.nuxt-docs
+.nuxt-docs-temp
+*.tgz
+AGENTS.md

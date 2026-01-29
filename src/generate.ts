@@ -14,6 +14,8 @@ export async function generateIndex(docsDir: string): Promise<IndexResult> {
   }
 }
 
+const EXCLUDED_DIRS = ['bridge', 'community']
+
 function walkDir(dir: string, baseDir: string, entries: DocEntry[]): void {
   let items: string[]
   try {
@@ -32,8 +34,9 @@ function walkDir(dir: string, baseDir: string, entries: DocEntry[]): void {
     }
 
     if (stat.isDirectory()) {
-      // Skip hidden directories and node_modules
-      if (!item.startsWith('.') && item !== 'node_modules') {
+      // Skip hidden directories, node_modules, and excluded dirs
+      const dirName = item.replace(/^\d+\./, '') // Remove number prefix like "6.bridge"
+      if (!item.startsWith('.') && item !== 'node_modules' && !EXCLUDED_DIRS.includes(dirName)) {
         walkDir(fullPath, baseDir, entries)
       }
     } else if (item.endsWith('.md') && !item.startsWith('.')) {
@@ -123,7 +126,7 @@ function generateMinifiedIndex(entries: DocEntry[], docsDir: string): string {
   const lines: string[] = []
 
   for (const entry of sorted) {
-    const keywords = entry.keywords.slice(0, 6).join(',')
+    const keywords = entry.keywords.slice(0, 5).join(',')
     lines.push(`${entry.category}|${docsDir}/${entry.path}|${keywords}`)
   }
 

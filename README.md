@@ -1,8 +1,8 @@
 # nuxt-agent-md
 
-Generate `AGENTS.md` with Nuxt documentation for AI coding agents.
+Generate `AGENTS.md` with Nuxt documentation for AI coding agents (Cursor, Copilot, Claude, etc.).
 
-Inspired by [Vercel's blog post](https://vercel.com/blog/agents-md-outperforms-skills-in-our-agent-evals) showing that `AGENTS.md` with a documentation index achieves 100% success rate on agent evaluations.
+Gives your AI assistant instant access to accurate Nuxt API references, reducing hallucinations and improving code quality.
 
 ## Usage
 
@@ -18,9 +18,15 @@ nuxt-agent-md
 ## What it does
 
 1. Detects your Nuxt version from `package.json`
-2. Downloads the corresponding `@nuxt/docs` documentation
-3. Generates a minified index of all documentation files
-4. Creates/updates `AGENTS.md` with the index and key Nuxt patterns
+2. Downloads the corresponding `@nuxt/docs` documentation (~1.5 MB)
+3. Generates a minified index (~20 KB) of all documentation files
+4. Creates/updates `AGENTS.md` with the index
+
+The index format is pipe-delimited for minimal token usage:
+
+```
+CATEGORY|path/to/file.md|keyword1,keyword2,keyword3
+```
 
 ## Options
 
@@ -48,36 +54,22 @@ nuxt-agent-md --no-minify
 
 # Custom output paths
 nuxt-agent-md -d .docs -o CLAUDE.md
-
-# Preview changes without writing
-nuxt-agent-md --dry-run
 ```
 
 ## Output
 
 The tool generates:
 
-1. `.nuxt-docs/` - Directory containing raw markdown documentation
+1. `.nuxt-docs/` - Directory containing markdown documentation (auto-added to `.gitignore`)
 2. `AGENTS.md` - File with minified index pointing to the docs
 
-The index format is pipe-delimited for minimal token usage:
+## Why?
 
-```
-CATEGORY|path/to/file.md|keyword1,keyword2,keyword3
-```
+AI coding agents work better when they have access to accurate documentation rather than relying on training data that may be outdated. By providing a compact index in `AGENTS.md`, the agent can quickly find and read the relevant documentation files for any Nuxt API.
 
-## Why this approach?
+## Credits
 
-From Vercel's research:
-
-| Approach | Success Rate |
-|----------|--------------|
-| Baseline (no docs) | 53% |
-| Skills | 53% |
-| Skills with explicit instructions | 79% |
-| **AGENTS.md with docs index** | **100%** |
-
-The key insight: providing a compressed index in `AGENTS.md` that points to detailed documentation files gives agents immediate access to accurate API information without decision overhead.
+Inspired by [Vercel's research](https://vercel.com/blog/agents-md-outperforms-skills-in-our-agent-evals) showing that documentation indexes in `AGENTS.md` significantly improve agent accuracy.
 
 ## License
 

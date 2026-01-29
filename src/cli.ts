@@ -1,9 +1,9 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 import { parseArgs } from 'node:util'
 import { generateAgentsMd } from './index'
 
 const { values } = parseArgs({
-  args: Bun.argv.slice(2),
+  args: process.argv.slice(2),
   options: {
     'docs-dir': {
       type: 'string',
@@ -75,6 +75,6 @@ try {
     dryRun: values['dry-run'],
   })
 } catch (error) {
-  console.error(`\n❌ Error: ${error instanceof Error ? error.message : error}\n`)
+  console.error(`Error: ${error instanceof Error ? error.message : error}`)
   process.exit(1)
 }

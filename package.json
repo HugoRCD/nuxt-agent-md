@@ -26,11 +26,7 @@
   "devDependencies": {
     "@types/bun": "^1.2.0",
     "@types/node": "^22.0.0",
-    "@types/tar": "^6.1.13",
     "typescript": "^5.7.3"
-  },
-  "dependencies": {
-    "tar": "^7.4.3"
   },
   "keywords": [
     "nuxt",

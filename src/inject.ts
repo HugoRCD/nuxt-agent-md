@@ -1,8 +1,9 @@
+import { dirname, join } from 'node:path'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import type { IndexResult } from './types'
 
-const START_MARKER = '<!-- NUXT_DOCS_START -->'
-const END_MARKER = '<!-- NUXT_DOCS_END -->'
+const START_MARKER = '<!-- BEGIN:nuxt-agent-rules -->'
+const END_MARKER = '<!-- END:nuxt-agent-rules -->'
 
 export async function injectAgentsMd(
   outputPath: string,
@@ -19,20 +20,40 @@ export async function injectAgentsMd(
 
   const nuxtSection = generateNuxtSection(index, nuxtVersion, docsDir, minify)
 
-  // Check if markers exist
+  // Check if markers exist (support both old and new marker styles)
+  const oldStartMarker = '<!-- NUXT_DOCS_START -->'
+  const oldEndMarker = '<!-- NUXT_DOCS_END -->'
+
   if (content.includes(START_MARKER) && content.includes(END_MARKER)) {
-    // Replace existing section
-    const regex = new RegExp(`${START_MARKER}[\\s\\S]*${END_MARKER}`, 'm')
+    const regex = new RegExp(`${escapeRegex(START_MARKER)}[\\s\\S]*${escapeRegex(END_MARKER)}`, 'm')
+    content = content.replace(regex, nuxtSection)
+  } else if (content.includes(oldStartMarker) && content.includes(oldEndMarker)) {
+    const regex = new RegExp(`${escapeRegex(oldStartMarker)}[\\s\\S]*${escapeRegex(oldEndMarker)}`, 'm')
     content = content.replace(regex, nuxtSection)
   } else if (content.length > 0) {
-    // Append to existing file
     content = content.trimEnd() + '\n\n' + nuxtSection
   } else {
-    // Create new file with header
     content = generateFullAgentsMd(nuxtSection)
   }
 
   writeFileSync(outputPath, content)
+
+  generateClaudeMd(outputPath)
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function generateClaudeMd(agentsMdPath: string): void {
+  const dir = dirname(agentsMdPath)
+  const claudeMdPath = join(dir, 'CLAUDE.md')
+  const agentsMdFilename = agentsMdPath.split('/').pop() || 'AGENTS.md'
+
+  const claudeMdContent = `@${agentsMdFilename}
+`
+
+  writeFileSync(claudeMdPath, claudeMdContent, 'utf-8')
 }
 
 function generateNuxtSection(

@@ -53,5 +53,6 @@ export async function generateAgentsMd(options: Partial<Options> = {}): Promise<
     console.log(`Added ${docsDir} to .gitignore`)
   }
 
-  console.log(`Generated ${outputPath}`)
+  const claudeMdPath = outputPath.replace(/[^/]+$/, 'CLAUDE.md')
+  console.log(`Generated ${outputPath} and ${claudeMdPath}`)
 }

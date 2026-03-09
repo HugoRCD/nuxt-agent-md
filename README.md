@@ -1,6 +1,6 @@
 # nuxt-agent-md
 
-Generate `AGENTS.md` with Nuxt documentation for AI coding agents (Cursor, Copilot, Claude, etc.).
+Generate `AGENTS.md` and `CLAUDE.md` with Nuxt documentation for AI coding agents (Cursor, Copilot, Claude Code, etc.).
 
 Gives your AI assistant instant access to accurate Nuxt API references, reducing hallucinations and improving code quality.
 
@@ -21,6 +21,7 @@ nuxt-agent-md
 2. Downloads the corresponding `@nuxt/docs` documentation (~1.5 MB)
 3. Generates a minified index (~20 KB) of all documentation files
 4. Creates/updates `AGENTS.md` with the index
+5. Creates `CLAUDE.md` that references `@AGENTS.md`
 
 The index format is pipe-delimited for minimal token usage:
 
@@ -61,7 +62,8 @@ nuxt-agent-md -d .docs -o CLAUDE.md
 The tool generates:
 
 1. `.nuxt-docs/` - Directory containing markdown documentation (auto-added to `.gitignore`)
-2. `AGENTS.md` - File with minified index pointing to the docs
+2. `AGENTS.md` - File with documentation index (wrapped in `<!-- BEGIN:nuxt-agent-rules -->` markers)
+3. `CLAUDE.md` - File that references `@AGENTS.md` for Claude Code/Cursor compatibility
 
 ## Why?
 

@@ -1,58 +1,123 @@
-import { existsSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs'
-import { detectNuxtVersion, mapToDocsVersion } from './detect'
-import { downloadDocs } from './download'
-import { generateIndex } from './generate'
-import { injectAgentsMd } from './inject'
-import type { Options } from './types'
+import { execSync } from 'node:child_process'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 
-function updateGitignore(entry: string): boolean {
-  const path = '.gitignore'
-  if (!existsSync(path)) {
-    writeFileSync(path, entry + '\n')
-    return true
-  }
-  const content = readFileSync(path, 'utf-8')
-  if (content.split('\n').some(l => l.trim() === entry)) return false
-  appendFileSync(path, (content.endsWith('\n') ? '' : '\n') + entry + '\n')
-  return true
+const START_MARKER = '<!-- BEGIN:nuxt-agent-rules -->'
+const END_MARKER = '<!-- END:nuxt-agent-rules -->'
+
+export interface Options {
+  root?: string
+  outputPath?: string
 }
 
-export { detectNuxtVersion, mapToDocsVersion } from './detect'
-export { downloadDocs } from './download'
-export { generateIndex } from './generate'
-export { injectAgentsMd } from './inject'
-export type * from './types'
+export function generateAgentFiles(options: Options = {}): void {
+  const root = options.root || process.cwd()
+  const outputPath = options.outputPath || join(root, 'AGENTS.md')
 
-export async function generateAgentsMd(options: Partial<Options> = {}): Promise<void> {
-  const {
-    docsDir = '.nuxt-docs',
-    outputPath = 'AGENTS.md',
-    nuxtVersion,
-    minify = true,
-    dryRun = false,
-  } = options
+  const nuxtVersion = detectNuxtVersion(root)
+  const majorVersion = nuxtVersion.split('.')[0]
 
-  const version = nuxtVersion || (await detectNuxtVersion())
-  const docsVersion = mapToDocsVersion(version)
+  ensureNuxtDocsInstalled(root, majorVersion)
 
-  if (dryRun) {
-    console.log(`[dry-run] Would download @nuxt/docs@${docsVersion} to ${docsDir}`)
-    console.log(`[dry-run] Would generate index and inject into ${outputPath}`)
+  const agentsMdContent = `${START_MARKER}
+# This is NOT the Nuxt.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in \`node_modules/@nuxt/docs/\` before writing any code.
+
+This project uses **Nuxt ${majorVersion}** (v${nuxtVersion}).
+${END_MARKER}
+`
+
+  const claudeMdContent = `@AGENTS.md
+`
+
+  let content = ''
+  if (existsSync(outputPath)) {
+    content = readFileSync(outputPath, 'utf-8')
+
+    const oldStartMarker = '<!-- NUXT_DOCS_START -->'
+    const oldEndMarker = '<!-- NUXT_DOCS_END -->'
+
+    if (content.includes(START_MARKER) && content.includes(END_MARKER)) {
+      const regex = new RegExp(`${escapeRegex(START_MARKER)}[\\s\\S]*${escapeRegex(END_MARKER)}`, 'm')
+      content = content.replace(regex, agentsMdContent.trim())
+    } else if (content.includes(oldStartMarker) && content.includes(oldEndMarker)) {
+      const regex = new RegExp(`${escapeRegex(oldStartMarker)}[\\s\\S]*${escapeRegex(oldEndMarker)}`, 'm')
+      content = content.replace(regex, agentsMdContent.trim())
+    } else {
+      content = content.trimEnd() + '\n\n' + agentsMdContent
+    }
+  } else {
+    content = agentsMdContent
+  }
+
+  const dir = dirname(outputPath)
+  const agentsMdPath = outputPath
+  const claudeMdPath = join(dir, 'CLAUDE.md')
+
+  writeFileSync(agentsMdPath, content, 'utf-8')
+  writeFileSync(claudeMdPath, claudeMdContent, 'utf-8')
+}
+
+function detectNuxtVersion(root: string): string {
+  const packageJsonPath = join(root, 'package.json')
+
+  if (!existsSync(packageJsonPath)) {
+    return '4.0.0'
+  }
+
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
+  const deps = { ...packageJson.dependencies, ...packageJson.devDependencies }
+  const nuxtVersion = deps.nuxt
+
+  if (!nuxtVersion) {
+    return '4.0.0'
+  }
+
+  const cleanVersion = nuxtVersion.replace(/[\^~>=<]/g, '').split(' ')[0]
+
+  if (cleanVersion === 'latest' || !cleanVersion.match(/^\d/)) {
+    return '4.0.0'
+  }
+
+  return cleanVersion
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function ensureNuxtDocsInstalled(root: string, majorVersion: string): void {
+  const docsPath = join(root, 'node_modules', '@nuxt', 'docs')
+
+  if (existsSync(docsPath)) {
     return
   }
 
-  console.log(`Downloading @nuxt/docs@${docsVersion}...`)
-  await downloadDocs(docsVersion, docsDir)
+  const packageManager = detectPackageManager(root)
+  const docsVersion = majorVersion === '3' ? '3' : '4'
 
-  const index = await generateIndex(docsDir)
-  console.log(`Indexed ${index.entries.length} files`)
+  console.log(`Installing @nuxt/docs@${docsVersion}...`)
 
-  await injectAgentsMd(outputPath, index, version, docsDir, minify)
-
-  if (updateGitignore(docsDir)) {
-    console.log(`Added ${docsDir} to .gitignore`)
+  const commands: Record<string, string> = {
+    bun: `bun add -D @nuxt/docs@${docsVersion}`,
+    pnpm: `pnpm add -D @nuxt/docs@${docsVersion}`,
+    yarn: `yarn add -D @nuxt/docs@${docsVersion}`,
+    npm: `npm install -D @nuxt/docs@${docsVersion}`,
   }
 
-  const claudeMdPath = outputPath.replace(/[^/]+$/, 'CLAUDE.md')
-  console.log(`Generated ${outputPath} and ${claudeMdPath}`)
+  execSync(commands[packageManager], { cwd: root, stdio: 'inherit' })
+}
+
+function detectPackageManager(root: string): string {
+  if (existsSync(join(root, 'bun.lockb')) || existsSync(join(root, 'bun.lock'))) {
+    return 'bun'
+  }
+  if (existsSync(join(root, 'pnpm-lock.yaml'))) {
+    return 'pnpm'
+  }
+  if (existsSync(join(root, 'yarn.lock'))) {
+    return 'yarn'
+  }
+  return 'npm'
 }
